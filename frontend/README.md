@@ -1,1 +1,413 @@
 "# Frontend Workspace" 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NCA — Find it nearby</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDE9E0;
+    --ink:#201C1F;
+    --indigo:#2A3B6B;
+    --indigo-deep:#1B2748;
+    --signage:#E8A23D;
+    --live:#3E7C59;
+    --live-dim:#BFD6C6;
+    --card:#F7F5EF;
+    --line: rgba(32,28,31,0.14);
+  }
+
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    background:var(--indigo);
+    color:var(--paper);
+    padding:22px 20px 20px;
+    position:relative;
+    overflow:hidden;
+  }
+  .masthead::before{
+    /* faint adire-inspired repeating dot/diamond texture */
+    content:"";
+    position:absolute; inset:0;
+    background-image:
+      radial-gradient(circle at 10px 10px, rgba(237,233,224,0.06) 1.5px, transparent 1.6px);
+    background-size:22px 22px;
+    pointer-events:none;
+  }
+  .masthead-row{
+    display:flex; align-items:baseline; justify-content:space-between;
+    position:relative; z-index:1;
+  }
+  .wordmark{
+    font-family:'Bricolage Grotesque', sans-serif;
+    font-weight:800;
+    font-size:clamp(28px, 7vw, 34px);
+    letter-spacing:-0.02em;
+    line-height:1;
+  }
+  .wordmark span{ color:var(--signage); }
+  .tagline{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    opacity:0.72;
+    margin-top:6px;
+    position:relative; z-index:1;
+  }
+
+  .locate-chip{
+    margin-top:16px;
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(237,233,224,0.1);
+    border:1px solid rgba(237,233,224,0.28);
+    color:var(--paper);
+    font-size:13px;
+    padding:7px 12px 7px 10px;
+    border-radius:999px;
+    position:relative; z-index:1;
+  }
+  .locate-dot{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--signage);
+    flex:none;
+  }
+
+  /* ---------- search ---------- */
+  .search-wrap{
+    padding:16px 20px 0;
+    margin-top:-1px;
+  }
+  .search-box{
+    background:var(--card);
+    border:2px solid var(--ink);
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    padding:4px 4px 4px 16px;
+    box-shadow:4px 4px 0 var(--ink);
+  }
+  .search-box svg{ flex:none; opacity:0.6; }
+  .search-box input{
+    border:none; background:transparent; outline:none;
+    font-family:'Inter',sans-serif;
+    font-size:16px;
+    padding:12px 8px;
+    flex:1;
+    color:var(--ink);
+    min-width:0;
+  }
+  .search-box input::placeholder{ color:rgba(32,28,31,0.45); }
+  .search-box button{
+    background:var(--signage);
+    border:none;
+    border-radius:10px;
+    padding:10px 16px;
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    color:var(--ink);
+  }
+  .search-box button:focus-visible,
+  .cat-tab:focus-visible,
+  .stall-cta:focus-visible,
+  .search-box input:focus-visible{
+    outline:3px solid var(--indigo);
+    outline-offset:2px;
+  }
+
+  /* ---------- category tabs ---------- */
+  .tabs{
+    display:flex; gap:8px;
+    overflow-x:auto;
+    padding:16px 20px 4px;
+    scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{ display:none; }
+  .cat-tab{
+    flex:none;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1.5px solid var(--line);
+    background:var(--card);
+    color:var(--ink);
+    cursor:pointer;
+    white-space:nowrap;
+    transition:border-color .15s ease, background .15s ease, color .15s ease;
+  }
+  .cat-tab.active{
+    background:var(--ink);
+    border-color:var(--ink);
+    color:var(--paper);
+  }
+
+  .result-count{
+    padding:14px 20px 6px;
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.03em;
+    color:rgba(32,28,31,0.6);
+  }
+
+  /* ---------- stall cards ---------- */
+  .stalls{
+    padding:6px 20px 32px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .stall{
+    background:var(--card);
+    border:1.5px solid var(--line);
+    border-left:5px solid var(--indigo);
+    border-radius:4px 12px 12px 4px;
+    padding:16px 16px 14px;
+  }
+  .stall.low-stock{ border-left-color:var(--signage); }
+
+  .stall-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:10px;
+  }
+  .shop-name{
+    font-family:'Bricolage Grotesque', sans-serif;
+    font-weight:700;
+    font-size:17px;
+    letter-spacing:-0.01em;
+  }
+  .distance{
+    flex:none;
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    color:var(--ink);
+    background:rgba(42,59,107,0.08);
+    padding:4px 8px;
+    border-radius:6px;
+    white-space:nowrap;
+  }
+
+  .product-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:10px;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .product-name{ font-size:15px; }
+  .price{
+    font-family:'Space Mono', monospace;
+    font-weight:700;
+    font-size:15px;
+  }
+
+  .stock-line{
+    display:flex; align-items:center; gap:7px;
+    margin-top:10px;
+    font-size:13px;
+  }
+  .pulse{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--live);
+    position:relative; flex:none;
+  }
+  .pulse::after{
+    content:"";
+    position:absolute; inset:-4px;
+    border-radius:50%;
+    border:1.5px solid var(--live);
+    animation:pulse 1.8s ease-out infinite;
+  }
+  .low-stock .pulse{ background:var(--signage); }
+  .low-stock .pulse::after{ border-color:var(--signage); }
+
+  @keyframes pulse{
+    0%{ transform:scale(0.6); opacity:0.9; }
+    100%{ transform:scale(1.9); opacity:0; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .pulse::after{ animation:none; display:none; }
+  }
+
+  .stall-footer{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-top:14px;
+    gap:10px;
+  }
+  .escrow-badge{
+    display:flex; align-items:center; gap:5px;
+    font-size:11.5px;
+    color:var(--indigo-deep);
+    font-weight:600;
+  }
+  .escrow-badge svg{ flex:none; }
+
+  .stall-cta{
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    border-radius:9px;
+    padding:10px 14px;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+    transition:background .15s ease;
+  }
+  .stall-cta:hover{ background:var(--indigo-deep); }
+
+  .empty{
+    padding:60px 20px;
+    text-align:center;
+    color:rgba(32,28,31,0.55);
+  }
+  .empty-title{
+    font-family:'Bricolage Grotesque', sans-serif;
+    font-weight:700;
+    font-size:19px;
+    color:var(--ink);
+    margin-bottom:6px;
+  }
+
+  footer{
+    text-align:center;
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    color:rgba(32,28,31,0.4);
+    padding:0 20px 28px;
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-row">
+    <div class="wordmark">NEXUS<span>.</span></div>
+  </div>
+  <div class="tagline">Find it. Trace it. Get it today.</div>
+  <div class="locate-chip">
+    <span class="locate-dot"></span>
+    Searching near Sabon Gari, Kano
+  </div>
+</header>
+
+<div class="search-wrap">
+  <div class="search-box">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="searchInput" type="text" placeholder="Search rice, cement, phone charger…" autocomplete="off">
+    <button id="searchBtn">Search</button>
+  </div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="cat-tab active" data-cat="all">All</button>
+  <button class="cat-tab" data-cat="food">Food &amp; grain</button>
+  <button class="cat-tab" data-cat="building">Building</button>
+  <button class="cat-tab" data-cat="electronics">Electronics</button>
+  <button class="cat-tab" data-cat="baby">Baby &amp; home</button>
+</div>
+
+<div class="result-count" id="resultCount">6 shops nearby</div>
+
+<div class="stalls" id="stalls"></div>
+
+<footer>NCA concept UI · escrow-protected checkout runs through WhatsApp</footer>
+
+<script>
+const DATA = [
+  {shop:"Amina Grains Store", cat:"food", product:"Rice, 50kg bag", price:"₦68,500", distance:"0.4 km · 6 min walk", stock:23, low:false},
+  {shop:"Yusuf & Sons Provisions", cat:"food", product:"Rice, 50kg bag", price:"₦71,000", distance:"0.9 km · 4 min ride", stock:4, low:true},
+  {shop:"Danja Building Supplies", cat:"building", product:"Dangote Cement, 1 bag", price:"₦9,200", distance:"1.2 km · 5 min ride", stock:140, low:false},
+  {shop:"Kofar Wambai Hardware", cat:"building", product:"Compressed earth block, 1 pc", price:"₦380", distance:"1.6 km · 7 min ride", stock:900, low:false},
+  {shop:"Sabon Gari Mobile Point", cat:"electronics", product:"Type-C fast charger", price:"₦4,500", distance:"0.3 km · 5 min walk", stock:11, low:false},
+  {shop:"Baby Bright Essentials", cat:"baby", product:"Infant formula, 900g", price:"₦12,300", distance:"2.1 km · 9 min ride", stock:2, low:true}
+];
+
+const stallsEl = document.getElementById('stalls');
+const countEl = document.getElementById('resultCount');
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const tabs = document.getElementById('tabs');
+let activeCat = 'all';
+
+function render(){
+  const q = searchInput.value.trim().toLowerCase();
+  const filtered = DATA.filter(d=>{
+    const matchCat = activeCat==='all' || d.cat===activeCat;
+    const matchQ = !q || d.product.toLowerCase().includes(q) || d.shop.toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+
+  countEl.textContent = filtered.length + (filtered.length===1 ? " shop nearby" : " shops nearby");
+
+  if(filtered.length===0){
+    stallsEl.innerHTML = `<div class="empty">
+      <div class="empty-title">Nothing here yet</div>
+      <div>Try a different word, or check another category.</div>
+    </div>`;
+    return;
+  }
+
+  stallsEl.innerHTML = filtered.map(d=>`
+    <div class="stall ${d.low ? 'low-stock' : ''}">
+      <div class="stall-top">
+        <div class="shop-name">${d.shop}</div>
+        <div class="distance">${d.distance}</div>
+      </div>
+      <div class="product-row">
+        <div class="product-name">${d.product}</div>
+        <div class="price">${d.price}</div>
+      </div>
+      <div class="stock-line">
+        <span class="pulse"></span>
+        ${d.stock} in stock ${d.low ? "&middot; going fast" : "&middot; live"}
+      </div>
+      <div class="stall-footer">
+        <div class="escrow-badge">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
+          Escrow protected
+        </div>
+        <button class="stall-cta">
+          Chat on WhatsApp
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.6 1.4 5.1L2 22l5.1-1.3c1.4.8 3.1 1.2 4.9 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2z" opacity="0"/><path d="M17.1 14.4c-.3-.1-1.6-.8-1.8-.9-.2-.1-.4-.1-.6.1-.2.2-.6.9-.8 1.1-.1.2-.3.2-.5.1-.8-.4-1.6-.8-2.3-1.4-.6-.5-1.1-1.2-1.5-1.9-.1-.2 0-.4.1-.5l.4-.5c.1-.1.1-.3.1-.4 0-.1-.4-1-.6-1.4-.1-.3-.3-.3-.5-.3h-.5c-.2 0-.4.1-.6.3-.6.6-.9 1.4-.9 2.2.1 1 .5 2 1.2 2.9 1.2 1.6 2.7 2.9 4.5 3.6.5.2.9.3 1.4.4.5.1 1 .1 1.5 0 .6-.1 1.6-.7 1.9-1.3.2-.6.2-1.1.1-1.2-.1-.1-.2-.1-.4-.2z"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+searchInput.addEventListener('input', render);
+searchBtn.addEventListener('click', render);
+tabs.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.cat-tab');
+  if(!btn) return;
+  tabs.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  activeCat = btn.dataset.cat;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
