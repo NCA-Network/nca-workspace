@@ -368,32 +368,76 @@ function render(){
   }
 
   stallsEl.innerHTML = filtered.map(d=>`
-    <div class="stall ${d.low ? 'low-stock' : ''}">
-      <div class="stall-top">
+<div class="stall ${d.low ? 'low-stock' : ''}">
+
+  <div class="stall-top">
+
+    <div style="flex:1">
+
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+
         <div class="shop-name">${d.shop}</div>
-        <div class="distance">${d.distance}</div>
-      </div>
-      <div class="product-row">
-        <div class="product-name">${d.product}</div>
-        <div class="price">${d.price}</div>
-      </div>
-      <div class="stock-line">
-        <span class="pulse"></span>
-        ${d.stock} in stock ${d.low ? "&middot; going fast" : "&middot; live"}
-      </div>
-      <div class="stall-footer">
-        <div class="escrow-badge">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
-          Escrow protected
+
+        <div class="distance">
+          📍 ${d.distance}
         </div>
-        <button class="stall-cta">
-          Chat on WhatsApp
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.6 1.4 5.1L2 22l5.1-1.3c1.4.8 3.1 1.2 4.9 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2z" opacity="0"/><path d="M17.1 14.4c-.3-.1-1.6-.8-1.8-.9-.2-.1-.4-.1-.6.1-.2.2-.6.9-.8 1.1-.1.2-.3.2-.5.1-.8-.4-1.6-.8-2.3-1.4-.6-.5-1.1-1.2-1.5-1.9-.1-.2 0-.4.1-.5l.4-.5c.1-.1.1-.3.1-.4 0-.1-.4-1-.6-1.4-.1-.3-.3-.3-.5-.3h-.5c-.2 0-.4.1-.6.3-.6.6-.9 1.4-.9 2.2.1 1 .5 2 1.2 2.9 1.2 1.6 2.7 2.9 4.5 3.6.5.2.9.3 1.4.4.5.1 1 .1 1.5 0 .6-.1 1.6-.7 1.9-1.3.2-.6.2-1.1.1-1.2-.1-.1-.2-.1-.4-.2z"/></svg>
-        </button>
+
       </div>
+
+      <div class="merchant-rating">
+        ⭐ 4.8 • Verified Merchant ✅
+      </div>
+
     </div>
-  `).join('');
-}
+
+  </div>
+
+  <div class="product-row">
+
+    <div>
+
+      <div class="product-name">
+        ${d.product}
+      </div>
+
+      <div class="price">
+        ${d.price}
+      </div>
+
+      <div class="delivery">
+        🚲 Delivery in 15–20 mins
+      </div>
+
+      <div class="stock-line">
+
+        <span class="pulse"></span>
+
+        ${
+          d.low
+          ? "🟠 Only a few left"
+          : "🟢 In Stock"
+        }
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="stall-footer">
+
+    <div class="escrow-badge">
+      🛡 Escrow Protected
+    </div>
+
+    <button class="stall-cta">
+      Buy on WhatsApp →
+    </button>
+
+  </div>
+
+</div>
+`).join('');
 
 searchInput.addEventListener('input', render);
 searchBtn.addEventListener('click', render);
