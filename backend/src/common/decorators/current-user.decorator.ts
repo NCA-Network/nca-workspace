@@ -1,0 +1,11 @@
+import { createParamDecorator, type ExecutionContext } from "@nestjs/common";
+import type { Request } from "express";
+import type { User } from "../../database/schema";
+
+/** Injects the authenticated user attached to the request by AuthGuard. */
+export const CurrentUser = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): User => {
+    const request = ctx.switchToHttp().getRequest<Request & { user: User }>();
+    return request.user;
+  },
+);
