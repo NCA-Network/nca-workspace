@@ -1,40 +1,53 @@
-import { Injectable } from "@nestjs/common";
-import { and, desc, eq, like } from "drizzle-orm";
-import { DatabaseService } from "../database/database.service";
-import { products, type User } from "../database/schema";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import type { Product, User } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
+import { BusinessService } from "../business/business.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 
 @Injectable()
 export class ProductService {
-  constructor(private readonly database: DatabaseService) {}
-  private get db() {
-    return this.database.db;
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly businessService: BusinessService,
+  ) {}
+
+  async list(user: User): Promise<Product[]> {
+    const business = await this.businessService.getForUser(user);
+    if (!business) return [];
+    return this.prisma.product.findMany({
+      where: { businessId: business.id },
+      orderBy: { createdAt: "desc" },
+    });
   }
 
-  list(user: User) {
-    return this.db
-      .select()
-      .from(products)
-      .where(eq(products.businessId, user.id))
-      .orderBy(desc(products.createdAt));
+  async search(user: User, query: string): Promise<Product[]> {
+    const business = await this.businessService.getForUser(user);
+    if (!business) return [];
+    return this.prisma.product.findMany({
+      where: {
+        businessId: business.id,
+        name: { contains: query, mode: "insensitive" },
+      },
+      orderBy: { createdAt: "desc" },
+    });
   }
 
-  search(user: User, query: string) {
-    return this.db
-      .select()
-      .from(products)
-      .where(
-        and(eq(products.businessId, user.id), like(products.name, `%${query}%`)),
-      )
-      .orderBy(desc(products.createdAt));
+  /** Loads a product and asserts it belongs to the caller's business. */
+  private async requireOwned(user: User, id: number): Promise<Product> {
+    const business = await this.businessService.requireForUser(user);
+    const product = await this.prisma.product.findUnique({ where: { id } });
+    if (!product || product.businessId !== business.id) {
+      throw new NotFoundException("Product not found");
+    }
+    return product;
   }
 
-  async create(dto: CreateProductDto) {
-    const [result] = await this.db
-      .insert(products)
-      .values({
-        businessId: dto.businessId,
+  async create(user: User, dto: CreateProductDto): Promise<Product> {
+    const business = await this.businessService.requireForUser(user);
+    return this.prisma.product.create({
+      data: {
+        businessId: business.id,
         name: dto.name,
         description: dto.description,
         price: dto.price,
@@ -42,30 +55,18 @@ export class ProductService {
         imageUrl: dto.imageUrl,
         availability: dto.availability ?? true,
         stockQuantity: dto.stockQuantity,
-      })
-      .$returningId();
-
-    const [product] = await this.db
-      .select()
-      .from(products)
-      .where(eq(products.id, result.id))
-      .limit(1);
-    return product;
+      },
+    });
   }
 
-  async update(id: number, dto: UpdateProductDto) {
-    await this.db.update(products).set({ ...dto }).where(eq(products.id, id));
-
-    const [product] = await this.db
-      .select()
-      .from(products)
-      .where(eq(products.id, id))
-      .limit(1);
-    return product;
+  async update(user: User, id: number, dto: UpdateProductDto): Promise<Product> {
+    await this.requireOwned(user, id);
+    return this.prisma.product.update({ where: { id }, data: { ...dto } });
   }
 
-  async remove(id: number) {
-    await this.db.delete(products).where(eq(products.id, id));
+  async remove(user: User, id: number) {
+    await this.requireOwned(user, id);
+    await this.prisma.product.delete({ where: { id } });
     return { success: true };
   }
 }

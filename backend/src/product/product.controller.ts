@@ -10,7 +10,7 @@ import {
   Query,
 } from "@nestjs/common";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
-import type { User } from "../database/schema";
+import type { User } from "@prisma/client";
 import { ProductService } from "./product.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
@@ -31,20 +31,21 @@ export class ProductController {
   }
 
   @Post()
-  create(@Body() dto: CreateProductDto) {
-    return this.service.create(dto);
+  create(@CurrentUser() user: User, @Body() dto: CreateProductDto) {
+    return this.service.create(user, dto);
   }
 
   @Patch(":id")
   update(
+    @CurrentUser() user: User,
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: UpdateProductDto,
   ) {
-    return this.service.update(id, dto);
+    return this.service.update(user, id, dto);
   }
 
   @Delete(":id")
-  remove(@Param("id", ParseIntPipe) id: number) {
-    return this.service.remove(id);
+  remove(@CurrentUser() user: User, @Param("id", ParseIntPipe) id: number) {
+    return this.service.remove(user, id);
   }
 }

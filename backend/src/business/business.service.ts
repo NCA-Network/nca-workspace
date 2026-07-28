@@ -1,65 +1,54 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { eq } from "drizzle-orm";
-import { DatabaseService } from "../database/database.service";
-import { businesses, type User } from "../database/schema";
+import type { Business, User } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
 import { CreateBusinessDto } from "./dto/create-business.dto";
 import { UpdateBusinessDto } from "./dto/update-business.dto";
 
 @Injectable()
 export class BusinessService {
-  constructor(private readonly database: DatabaseService) {}
-  private get db() {
-    return this.database.db;
+  constructor(private readonly prisma: PrismaService) {}
+
+  getForUser(user: User): Promise<Business | null> {
+    return this.prisma.business.findFirst({ where: { userId: user.id } });
   }
 
-  async getForUser(user: User) {
-    const [business] = await this.db
-      .select()
-      .from(businesses)
-      .where(eq(businesses.userId, user.id))
-      .limit(1);
-    return business ?? null;
+  /** Resolves the caller's business or throws — use in resolvers that need one. */
+  async requireForUser(user: User): Promise<Business> {
+    const business = await this.getForUser(user);
+    if (!business) {
+      throw new NotFoundException(
+        "No business profile found. Please create one first.",
+      );
+    }
+    return business;
   }
 
-  async create(user: User, dto: CreateBusinessDto) {
-    const [result] = await this.db
-      .insert(businesses)
-      .values({
+  getById(id: number): Promise<Business | null> {
+    return this.prisma.business.findUnique({ where: { id } });
+  }
+
+  findByWhatsappNumber(whatsappNumber: string): Promise<Business | null> {
+    return this.prisma.business.findFirst({ where: { whatsappNumber } });
+  }
+
+  create(user: User, dto: CreateBusinessDto): Promise<Business> {
+    return this.prisma.business.create({
+      data: {
         userId: user.id,
         businessName: dto.businessName,
         whatsappNumber: dto.whatsappNumber,
         businessHours: dto.businessHours,
         deliveryInfo: dto.deliveryInfo,
         paymentMethods: dto.paymentMethods,
-      })
-      .$returningId();
-
-    const [business] = await this.db
-      .select()
-      .from(businesses)
-      .where(eq(businesses.id, result.id))
-      .limit(1);
-    return business;
+      },
+    });
   }
 
-  async update(user: User, id: number, dto: UpdateBusinessDto) {
-    const [existing] = await this.db
-      .select()
-      .from(businesses)
-      .where(eq(businesses.id, id))
-      .limit(1);
-
+  async update(user: User, id: number, dto: UpdateBusinessDto): Promise<Business> {
+    const existing = await this.prisma.business.findUnique({ where: { id } });
     if (!existing || existing.userId !== user.id) {
       throw new NotFoundException("Business not found");
     }
-
-    await this.db.update(businesses).set({ ...dto }).where(eq(businesses.id, id));
-
-    const [updated] = await this.db
-      .select()
-      .from(businesses)
-      .where(eq(businesses.id, id))
-      .limit(1);
-    return updated;
+    return this.prisma.business.update({ where: { id }, data: { ...dto } });
   }
 }

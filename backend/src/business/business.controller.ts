@@ -8,7 +8,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
-import type { User } from "../database/schema";
+import type { User } from "@prisma/client";
 import { BusinessService } from "./business.service";
 import { CreateBusinessDto } from "./dto/create-business.dto";
 import { UpdateBusinessDto } from "./dto/update-business.dto";
