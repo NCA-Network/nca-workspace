@@ -8,7 +8,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
-import type { User } from "../database/schema";
+import type { User } from "@prisma/client";
 import { ConversationService } from "./conversation.service";
 import { AddMessageDto } from "./dto/add-message.dto";
 import { UpdateStatusDto } from "./dto/update-status.dto";

@@ -1,8 +1,9 @@
-# BusinessAI Assistant — Backend Design
+# NexusAI Assistant — Backend Design
 
 ## Architecture
 
 ### Stack
+
 - **Server**: Hono + tRPC 11.x (type-safe API)
 - **Database**: Drizzle ORM + MySQL
 - **Auth**: OAuth 2.0 (Kimi portal)
@@ -11,27 +12,27 @@
 
 ### Database Schema
 
-| Table | Purpose |
-|-------|---------|
-| `users` | Auth users (auto-created) |
-| `businesses` | Business profile per user |
-| `products` | Product catalog |
-| `faqs` | FAQ entries |
-| `conversations` | WhatsApp chat sessions |
-| `messages` | Individual messages |
-| `handoff_requests` | Human handoff queue |
+| Table              | Purpose                   |
+| ------------------ | ------------------------- |
+| `users`            | Auth users (auto-created) |
+| `businesses`       | Business profile per user |
+| `products`         | Product catalog           |
+| `faqs`             | FAQ entries               |
+| `conversations`    | WhatsApp chat sessions    |
+| `messages`         | Individual messages       |
+| `handoff_requests` | Human handoff queue       |
 
 ### API Routers (tRPC)
 
-| Router | Operations |
-|--------|-----------|
-| `auth` | Login/logout (from init) |
-| `product` | create, list, update, delete, search |
-| `faq` | create, list, update, delete |
-| `conversation` | list, getById, markHandled |
-| `handoff` | request, accept, resolve, getQueue |
-| `ai` | sendMessage (routes to OpenAI), getConversations |
-| `dashboard` | getStats (conversation count, handoff queue size) |
+| Router         | Operations                                        |
+| -------------- | ------------------------------------------------- |
+| `auth`         | Login/logout (from init)                          |
+| `product`      | create, list, update, delete, search              |
+| `faq`          | create, list, update, delete                      |
+| `conversation` | list, getById, markHandled                        |
+| `handoff`      | request, accept, resolve, getQueue                |
+| `ai`           | sendMessage (routes to OpenAI), getConversations  |
+| `dashboard`    | getStats (conversation count, handoff queue size) |
 
 ### Flow
 

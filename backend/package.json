@@ -2,16 +2,19 @@
   "name": "nca-backend",
   "private": true,
   "version": "0.0.0",
-  "description": "NCA / BusinessAI backend — NestJS REST API",
+  "description": "NCA / NexusAI backend — NestJS REST API",
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "nest start",
     "start:prod": "node dist/main.js",
     "check": "tsc --noEmit -p tsconfig.json",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push"
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -19,13 +22,12 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/platform-express": "^11.0.1",
+    "@prisma/client": "^6.2.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "cookie": "^1.1.1",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.45.1",
-    "mysql2": "^3.14.1",
     "openai": "^6.45.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
@@ -36,7 +38,7 @@
     "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.0",
     "@types/node": "^24.10.1",
-    "drizzle-kit": "^0.31.8",
+    "prisma": "^6.2.1",
     "typescript": "~5.9.3"
   }
 }
