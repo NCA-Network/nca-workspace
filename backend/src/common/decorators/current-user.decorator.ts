@@ -1,6 +1,6 @@
 import { createParamDecorator, type ExecutionContext } from "@nestjs/common";
 import type { Request } from "express";
-import type { User } from "../../database/schema";
+import type { User } from "@prisma/client";
 
 /** Injects the authenticated user attached to the request by AuthGuard. */
 export const CurrentUser = createParamDecorator(

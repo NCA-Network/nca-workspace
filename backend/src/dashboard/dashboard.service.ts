@@ -1,28 +1,17 @@
 import { Injectable } from "@nestjs/common";
-import { and, count, eq, sql } from "drizzle-orm";
-import { DatabaseService } from "../database/database.service";
-import {
-  businesses,
-  conversations,
-  handoffRequests,
-  messages,
-  products,
-  type User,
-} from "../database/schema";
+import type { User } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
+import { BusinessService } from "../business/business.service";
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly database: DatabaseService) {}
-  private get db() {
-    return this.database.db;
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly businessService: BusinessService,
+  ) {}
 
   async getStats(user: User) {
-    const [business] = await this.db
-      .select()
-      .from(businesses)
-      .where(eq(businesses.userId, user.id))
-      .limit(1);
+    const business = await this.businessService.getForUser(user);
 
     if (!business) {
       return {
@@ -38,75 +27,45 @@ export class DashboardService {
 
     const businessId = business.id;
 
-    const [convResult] = await this.db
-      .select({ count: count() })
-      .from(conversations)
-      .where(eq(conversations.businessId, businessId));
-
-    const [activeResult] = await this.db
-      .select({ count: count() })
-      .from(conversations)
-      .where(
-        and(
-          eq(conversations.businessId, businessId),
-          eq(conversations.status, "active"),
-        ),
-      );
-
-    const [handoffResult] = await this.db
-      .select({ count: count() })
-      .from(handoffRequests)
-      .where(
-        and(
-          eq(handoffRequests.businessId, businessId),
-          eq(handoffRequests.status, "pending"),
-        ),
-      );
-
-    const [productResult] = await this.db
-      .select({ count: count() })
-      .from(products)
-      .where(eq(products.businessId, businessId));
-
-    const [msgResult] = await this.db
-      .select({ count: count() })
-      .from(messages)
-      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
-      .where(eq(conversations.businessId, businessId));
-
-    const recentConvs = await this.db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.businessId, businessId))
-      .orderBy(sql`${conversations.lastMessageAt} DESC`)
-      .limit(5);
-
-    const recentActivity = await Promise.all(
-      recentConvs.map(async (conv) => {
-        const [lastMsg] = await this.db
-          .select()
-          .from(messages)
-          .where(eq(messages.conversationId, conv.id))
-          .orderBy(sql`${messages.createdAt} DESC`)
-          .limit(1);
-
-        return {
-          conversationId: conv.id,
-          customerName: conv.customerName || conv.customerPhone,
-          status: conv.status,
-          lastMessage: lastMsg?.content || "",
-          lastMessageAt: lastMsg?.createdAt || conv.lastMessageAt,
-        };
+    const [
+      totalConversations,
+      activeConversations,
+      pendingHandoffs,
+      totalProducts,
+      totalMessages,
+      recentConvs,
+    ] = await Promise.all([
+      this.prisma.conversation.count({ where: { businessId } }),
+      this.prisma.conversation.count({ where: { businessId, status: "active" } }),
+      this.prisma.handoffRequest.count({ where: { businessId, status: "pending" } }),
+      this.prisma.product.count({ where: { businessId } }),
+      this.prisma.message.count({ where: { conversation: { businessId } } }),
+      this.prisma.conversation.findMany({
+        where: { businessId },
+        orderBy: { lastMessageAt: "desc" },
+        take: 5,
+        include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
       }),
-    );
+    ]);
+
+    const recentActivity = recentConvs.map((conv) => {
+      const lastMsg = conv.messages[0];
+      return {
+        conversationId: conv.id,
+        customerName: conv.customerName || conv.customerPhone,
+        status: conv.status,
+        lastMessage: lastMsg?.content || "",
+        lastMessageAt: lastMsg?.createdAt || conv.lastMessageAt,
+      };
+    });
 
     return {
       hasBusiness: true,
-      totalConversations: convResult.count,
-      activeConversations: activeResult.count,
-      pendingHandoffs: handoffResult.count,
-      totalProducts: productResult.count,
-      totalMessages: msgResult.count,
+      totalConversations,
+      activeConversations,
+      pendingHandoffs,
+      totalProducts,
+      totalMessages,
       recentActivity,
     };
   }

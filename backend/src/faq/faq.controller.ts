@@ -9,7 +9,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
-import type { User } from "../database/schema";
+import type { User } from "@prisma/client";
 import { FaqService } from "./faq.service";
 import { CreateFaqDto } from "./dto/create-faq.dto";
 import { UpdateFaqDto } from "./dto/update-faq.dto";
@@ -24,17 +24,21 @@ export class FaqController {
   }
 
   @Post()
-  create(@Body() dto: CreateFaqDto) {
-    return this.service.create(dto);
+  create(@CurrentUser() user: User, @Body() dto: CreateFaqDto) {
+    return this.service.create(user, dto);
   }
 
   @Patch(":id")
-  update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateFaqDto) {
-    return this.service.update(id, dto);
+  update(
+    @CurrentUser() user: User,
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: UpdateFaqDto,
+  ) {
+    return this.service.update(user, id, dto);
   }
 
   @Delete(":id")
-  remove(@Param("id", ParseIntPipe) id: number) {
-    return this.service.remove(id);
+  remove(@CurrentUser() user: User, @Param("id", ParseIntPipe) id: number) {
+    return this.service.remove(user, id);
   }
 }

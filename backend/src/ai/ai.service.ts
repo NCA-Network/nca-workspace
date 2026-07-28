@@ -1,19 +1,18 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import OpenAI from "openai";
-import { desc, eq } from "drizzle-orm";
-import { DatabaseService } from "../database/database.service";
-import {
-  businesses,
-  conversations,
-  faqs,
-  messages,
-  products,
-  type Business,
-  type FAQ,
-  type Product,
-  type User,
-} from "../database/schema";
+import type { Business, Faq, Product, User } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
+import { BusinessService } from "../business/business.service";
 import { ChatDto } from "./dto/chat.dto";
+
+interface ConverseOptions {
+  conversationId?: number;
+  customerPhone: string;
+  customerName?: string;
+  message: string;
+  /** When false, the customer message is stored but no AI reply is generated. */
+  autoReply: boolean;
+}
 
 @Injectable()
 export class AiService {
@@ -21,134 +20,121 @@ export class AiService {
     apiKey: process.env.OPENAI_API_KEY || "sk-dummy",
   });
 
-  constructor(private readonly database: DatabaseService) {}
-  private get db() {
-    return this.database.db;
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly businessService: BusinessService,
+  ) {}
 
+  /** Dashboard "AI simulator" — always replies, regardless of aiEnabled. */
   async chat(user: User, dto: ChatDto) {
-    const [business] = await this.db
-      .select()
-      .from(businesses)
-      .where(eq(businesses.userId, user.id))
-      .limit(1);
-
-    if (!business) {
-      throw new NotFoundException(
-        "No business profile found. Please create one first.",
-      );
-    }
-
-    // Get or create conversation
-    let conversationId = dto.conversationId;
-    if (!conversationId) {
-      const [conv] = await this.db
-        .insert(conversations)
-        .values({
-          businessId: business.id,
-          customerPhone: dto.customerPhone ?? "+1234567890",
-          customerName: dto.customerName || "Customer",
-        })
-        .$returningId();
-      conversationId = conv.id;
-    }
-
-    // Store the customer message
-    await this.db.insert(messages).values({
-      conversationId,
-      sender: "customer",
-      content: dto.message,
+    const business = await this.businessService.requireForUser(user);
+    return this.converse(business, {
+      conversationId: dto.conversationId,
+      customerPhone: dto.customerPhone ?? "+1234567890",
+      customerName: dto.customerName,
+      message: dto.message,
+      autoReply: true,
     });
-
-    // Recent history (newest first, then reversed for the prompt)
-    const history = await this.db
-      .select()
-      .from(messages)
-      .where(eq(messages.conversationId, conversationId))
-      .orderBy(desc(messages.createdAt))
-      .limit(10);
-
-    const businessProducts = await this.db
-      .select()
-      .from(products)
-      .where(eq(products.businessId, business.id))
-      .limit(20);
-
-    const businessFaqs = await this.db
-      .select()
-      .from(faqs)
-      .where(eq(faqs.businessId, business.id))
-      .limit(20);
-
-    const systemPrompt = this.buildSystemPrompt(
-      business,
-      businessProducts,
-      businessFaqs,
-    );
-
-    const chatMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      { role: "system", content: systemPrompt },
-      ...history.reverse().map((msg) => {
-        const role: "user" | "assistant" =
-          msg.sender === "customer" ? "user" : "assistant";
-        return { role, content: msg.content };
-      }),
-    ];
-    chatMessages.push({ role: "user", content: dto.message });
-
-    let aiResponse: string;
-    try {
-      const completion = await this.openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: chatMessages,
-        temperature: 0.7,
-        max_tokens: 500,
-      });
-      aiResponse =
-        completion.choices[0]?.message?.content ||
-        "I'm sorry, I couldn't process that. Let me connect you with a team member.";
-    } catch {
-      aiResponse = this.generateFallbackResponse(
-        dto.message,
-        businessProducts,
-        businessFaqs,
-      );
-    }
-
-    await this.db.insert(messages).values({
-      conversationId,
-      sender: "ai",
-      content: aiResponse,
-    });
-
-    await this.db
-      .update(conversations)
-      .set({ lastMessageAt: new Date() })
-      .where(eq(conversations.id, conversationId));
-
-    return { conversationId, response: aiResponse };
   }
 
   async getConversations(user: User) {
-    const [business] = await this.db
-      .select()
-      .from(businesses)
-      .where(eq(businesses.userId, user.id))
-      .limit(1);
-
+    const business = await this.businessService.getForUser(user);
     if (!business) return [];
+    return this.prisma.conversation.findMany({
+      where: { businessId: business.id },
+      orderBy: { lastMessageAt: "desc" },
+    });
+  }
 
-    return this.db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.businessId, business.id))
-      .orderBy(desc(conversations.lastMessageAt));
+  /**
+   * Core message pipeline shared by the dashboard simulator and the WhatsApp
+   * webhook: get/create conversation, store the customer message, optionally
+   * generate + store an AI reply, and bump the conversation timestamp.
+   */
+  async converse(
+    business: Business,
+    opts: ConverseOptions,
+  ): Promise<{ conversationId: number; response: string | null }> {
+    let conversationId = opts.conversationId;
+    if (!conversationId) {
+      const conv = await this.prisma.conversation.create({
+        data: {
+          businessId: business.id,
+          customerPhone: opts.customerPhone,
+          customerName: opts.customerName || "Customer",
+        },
+      });
+      conversationId = conv.id;
+    }
+
+    await this.prisma.message.create({
+      data: { conversationId, sender: "customer", content: opts.message },
+    });
+
+    let response: string | null = null;
+
+    if (opts.autoReply) {
+      const [history, businessProducts, businessFaqs] = await Promise.all([
+        this.prisma.message.findMany({
+          where: { conversationId },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        }),
+        this.prisma.product.findMany({
+          where: { businessId: business.id },
+          take: 20,
+        }),
+        this.prisma.faq.findMany({
+          where: { businessId: business.id },
+          take: 20,
+        }),
+      ]);
+
+      const chatMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        { role: "system", content: this.buildSystemPrompt(business, businessProducts, businessFaqs) },
+        ...history.reverse().map((msg) => {
+          const role: "user" | "assistant" =
+            msg.sender === "customer" ? "user" : "assistant";
+          return { role, content: msg.content };
+        }),
+      ];
+      chatMessages.push({ role: "user", content: opts.message });
+
+      try {
+        const completion = await this.openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: chatMessages,
+          temperature: 0.7,
+          max_tokens: 500,
+        });
+        response =
+          completion.choices[0]?.message?.content ||
+          "I'm sorry, I couldn't process that. Let me connect you with a team member.";
+      } catch {
+        response = this.generateFallbackResponse(
+          opts.message,
+          businessProducts,
+          businessFaqs,
+        );
+      }
+
+      await this.prisma.message.create({
+        data: { conversationId, sender: "ai", content: response },
+      });
+    }
+
+    await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: new Date() },
+    });
+
+    return { conversationId, response };
   }
 
   private buildSystemPrompt(
     business: Business,
     productList: Product[],
-    faqList: FAQ[],
+    faqList: Faq[],
   ): string {
     const productsText = productList
       .map(
@@ -186,7 +172,7 @@ INSTRUCTIONS:
   private generateFallbackResponse(
     message: string,
     productList: Product[],
-    faqList: FAQ[],
+    faqList: Faq[],
   ): string {
     const lowerMsg = message.toLowerCase();
 
