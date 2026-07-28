@@ -6,12 +6,11 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { JwtService } from "@nestjs/jwt";
-import { eq } from "drizzle-orm";
 import type { Request } from "express";
+import type { User } from "@prisma/client";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 import { Session } from "../constants";
-import { DatabaseService } from "../../database/database.service";
-import { users, type User } from "../../database/schema";
+import { PrismaService } from "../../prisma/prisma.service";
 
 /**
  * Global guard. Verifies the session cookie (JWT), loads the user from the DB,
@@ -23,7 +22,7 @@ export class AuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly jwt: JwtService,
-    private readonly database: DatabaseService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -52,11 +51,7 @@ export class AuthGuard implements CanActivate {
     }
     if (!unionId) throw new UnauthorizedException("Invalid session");
 
-    const [user] = await this.database.db
-      .select()
-      .from(users)
-      .where(eq(users.unionId, unionId))
-      .limit(1);
+    const user = await this.prisma.user.findUnique({ where: { unionId } });
     if (!user) throw new UnauthorizedException("User not found");
 
     request.user = user;

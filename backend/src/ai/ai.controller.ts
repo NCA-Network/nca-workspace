@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post } from "@nestjs/common";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
-import type { User } from "../database/schema";
+import type { User } from "@prisma/client";
 import { AiService } from "./ai.service";
 import { ChatDto } from "./dto/chat.dto";
 

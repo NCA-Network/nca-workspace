@@ -1,4 +1,6 @@
 node_modules
+.next
+out
 dist
 *.local
 *.log
@@ -6,3 +8,4 @@ dist
 .env.*
 !.env.example
 *.tsbuildinfo
+next-env.d.ts

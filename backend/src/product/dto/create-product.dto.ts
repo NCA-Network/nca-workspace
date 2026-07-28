@@ -8,7 +8,9 @@ import {
 } from "class-validator";
 
 export class CreateProductDto {
-  @IsInt() businessId!: number;
+  // businessId is derived from the authenticated user's business, server-side.
+  // Kept optional for backward compatibility; the value is ignored.
+  @IsOptional() @IsInt() businessId?: number;
 
   @IsString() @Length(1, 255) name!: string;
 

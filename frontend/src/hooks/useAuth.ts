@@ -1,6 +1,10 @@
-import { trpc } from "@/providers/trpc";
+"use client";
+
 import { useCallback, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, ApiError } from "@/lib/api";
+import type { User } from "@/lib/types";
 import { LOGIN_PATH } from "@/const";
 
 type UseAuthOptions = {
@@ -12,24 +16,33 @@ export function useAuth(options?: UseAuthOptions) {
   const { redirectOnUnauthenticated = false, redirectPath = LOGIN_PATH } =
     options ?? {};
 
-  const navigate = useNavigate();
-
-  const utils = trpc.useUtils();
+  const router = useRouter();
+  const queryClient = useQueryClient();
 
   const {
     data: user,
     isLoading,
     error,
     refetch,
-  } = trpc.auth.me.useQuery(undefined, {
+  } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: async () => {
+      try {
+        return await api.get<User>("/api/auth/me");
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) return null;
+        throw e;
+      }
+    },
     staleTime: 1000 * 60 * 5,
     retry: false,
   });
 
-  const logoutMutation = trpc.auth.logout.useMutation({
+  const logoutMutation = useMutation({
+    mutationFn: () => api.post("/api/auth/logout"),
     onSuccess: async () => {
-      await utils.invalidate();
-      navigate(redirectPath);
+      await queryClient.invalidateQueries();
+      router.push(redirectPath);
     },
   });
 
@@ -37,12 +50,9 @@ export function useAuth(options?: UseAuthOptions) {
 
   useEffect(() => {
     if (redirectOnUnauthenticated && !isLoading && !user) {
-      const currentPath = window.location.pathname;
-      if (currentPath !== redirectPath) {
-        navigate(redirectPath);
-      }
+      router.push(redirectPath);
     }
-  }, [redirectOnUnauthenticated, isLoading, user, navigate, redirectPath]);
+  }, [redirectOnUnauthenticated, isLoading, user, router, redirectPath]);
 
   return useMemo(
     () => ({
@@ -55,4 +65,24 @@ export function useAuth(options?: UseAuthOptions) {
     }),
     [user, isLoading, logoutMutation.isPending, error, logout, refetch],
   );
+}
+
+export interface DevLoginInput {
+  unionId: string;
+  name?: string;
+  email?: string;
+}
+
+/** Developer login (dev-only backend endpoint) — issues a real session. */
+export function useDevLogin() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: DevLoginInput) =>
+      api.post<User>("/api/auth/dev-login", input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["auth"] });
+      router.push("/dashboard");
+    },
+  });
 }

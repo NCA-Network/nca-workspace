@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { getLenisInstance } from '../components/SmoothScrollProvider'
@@ -85,14 +86,21 @@ export default function Navigation() {
           ))}
         </div>
 
-        {/* CTA */}
-        <a
-          href="#pricing"
-          onClick={(e) => handleNavClick(e, '#pricing')}
-          className="font-body text-sm font-semibold uppercase tracking-[0.04em] text-[#1a1814] bg-[#d4a574] px-7 py-2.5 rounded-full hover:bg-[#c49464] hover:scale-[1.02] transition-all duration-250 ease-out"
-        >
-          Get Started
-        </a>
+        {/* Auth CTAs */}
+        <div className="flex items-center gap-3 sm:gap-5">
+          <Link
+            href="/login"
+            className="font-body text-sm font-medium text-[#1a1814] hover:text-[#d4a574] transition-colors duration-250 tracking-[0.02em]"
+          >
+            Sign In
+          </Link>
+          <Link
+            href="/login"
+            className="font-body text-sm font-semibold uppercase tracking-[0.04em] text-[#1a1814] bg-[#d4a574] px-7 py-2.5 rounded-full hover:bg-[#c49464] hover:scale-[1.02] transition-all duration-250 ease-out"
+          >
+            Get Started
+          </Link>
+        </div>
       </div>
     </nav>
   )

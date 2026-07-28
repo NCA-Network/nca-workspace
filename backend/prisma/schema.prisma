@@ -1,0 +1,144 @@
+// Prisma schema for the NCA / NexusAI backend (PostgreSQL).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // For pooled providers (Neon/Supabase), migrations need a direct connection:
+  // directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum ConversationStatus {
+  active
+  closed
+  handed_off
+}
+
+enum MessageSender {
+  customer
+  ai
+  human
+}
+
+enum HandoffStatus {
+  pending
+  accepted
+  resolved
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  unionId      String     @unique
+  name         String?
+  email        String?
+  avatar       String?
+  role         Role       @default(user)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  lastSignInAt DateTime   @default(now())
+  businesses   Business[]
+
+  @@map("users")
+}
+
+model Business {
+  id              Int              @id @default(autoincrement())
+  userId          Int
+  user            User             @relation(fields: [userId], references: [id])
+  businessName    String
+  whatsappNumber  String?
+  businessHours   String?
+  deliveryInfo    String?
+  paymentMethods  String?
+  aiEnabled       Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  products        Product[]
+  faqs            Faq[]
+  conversations   Conversation[]
+  handoffRequests HandoffRequest[]
+
+  @@map("businesses")
+}
+
+model Product {
+  id            Int      @id @default(autoincrement())
+  businessId    Int
+  business      Business @relation(fields: [businessId], references: [id])
+  name          String
+  description   String?
+  price         Decimal  @db.Decimal(10, 2)
+  category      String?
+  imageUrl      String?
+  availability  Boolean  @default(true)
+  stockQuantity Int?     @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("products")
+}
+
+model Faq {
+  id         Int      @id @default(autoincrement())
+  businessId Int
+  business   Business @relation(fields: [businessId], references: [id])
+  question   String
+  answer     String
+  category   String?
+  timesAsked Int?     @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("faqs")
+}
+
+model Conversation {
+  id              Int                @id @default(autoincrement())
+  businessId      Int
+  business        Business           @relation(fields: [businessId], references: [id])
+  customerPhone   String
+  customerName    String?
+  status          ConversationStatus @default(active)
+  aiHandled       Boolean            @default(true)
+  lastMessageAt   DateTime           @default(now())
+  createdAt       DateTime           @default(now())
+  messages        Message[]
+  handoffRequests HandoffRequest[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             Int           @id @default(autoincrement())
+  conversationId Int
+  conversation   Conversation  @relation(fields: [conversationId], references: [id])
+  sender         MessageSender
+  content        String
+  metadata       String?
+  createdAt      DateTime      @default(now())
+
+  @@map("messages")
+}
+
+model HandoffRequest {
+  id             Int           @id @default(autoincrement())
+  conversationId Int
+  conversation   Conversation  @relation(fields: [conversationId], references: [id])
+  businessId     Int
+  business       Business      @relation(fields: [businessId], references: [id])
+  reason         String?
+  status         HandoffStatus @default(pending)
+  acceptedBy     Int?
+  createdAt      DateTime      @default(now())
+  resolvedAt     DateTime?
+
+  @@map("handoff_requests")
+}

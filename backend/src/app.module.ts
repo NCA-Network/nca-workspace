@@ -3,7 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { AppController } from "./app.controller";
 import { AuthGuard } from "./common/guards/auth.guard";
-import { DatabaseModule } from "./database/database.module";
+import { PrismaModule } from "./prisma/prisma.module";
 import { AuthModule } from "./auth/auth.module";
 import { BusinessModule } from "./business/business.module";
 import { ProductModule } from "./product/product.module";
@@ -12,11 +12,12 @@ import { ConversationModule } from "./conversation/conversation.module";
 import { HandoffModule } from "./handoff/handoff.module";
 import { AiModule } from "./ai/ai.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { WebhookModule } from "./webhook/webhook.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    DatabaseModule,
+    PrismaModule,
     AuthModule,
     BusinessModule,
     ProductModule,
@@ -25,6 +26,7 @@ import { DashboardModule } from "./dashboard/dashboard.module";
     HandoffModule,
     AiModule,
     DashboardModule,
+    WebhookModule,
   ],
   controllers: [AppController],
   // Auth is on by default everywhere; mark exceptions with @Public().
